@@ -24,3 +24,65 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* --- Editor (ProseMirror / TipTap) content styles ------------------------ */
+.ProseMirror-editor {
+  line-height: 1.7;
+  font-size: 1.05rem;
+}
+.ProseMirror-editor > * + * {
+  margin-top: 0.75em;
+}
+.ProseMirror-editor h1 {
+  font-size: 1.875rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.ProseMirror-editor h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.ProseMirror-editor h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+.ProseMirror-editor ul,
+.ProseMirror-editor ol {
+  padding-left: 1.5rem;
+}
+.ProseMirror-editor ul {
+  list-style: disc;
+}
+.ProseMirror-editor ol {
+  list-style: decimal;
+}
+.ProseMirror-editor blockquote {
+  border-left: 3px solid color-mix(in oklab, currentColor 30%, transparent);
+  padding-left: 1rem;
+  color: color-mix(in oklab, currentColor 70%, transparent);
+}
+.ProseMirror-editor pre {
+  background: color-mix(in oklab, currentColor 8%, transparent);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  font-family: var(--font-mono), monospace;
+  font-size: 0.9rem;
+  overflow-x: auto;
+}
+.ProseMirror-editor code {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.9em;
+}
+.ProseMirror-editor a {
+  color: #2563eb;
+  text-decoration: underline;
+}
+/* Placeholder look for an empty doc */
+.ProseMirror-editor p.is-editor-empty:first-child::before {
+  content: "Start writing…";
+  color: color-mix(in oklab, currentColor 40%, transparent);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}

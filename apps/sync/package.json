@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "start": "tsx src/server.ts"
@@ -13,6 +16,7 @@
     "dotenv": "^16.4.7",
     "drizzle-orm": "^0.38.3",
     "lib0": "^0.2.99",
+    "tsx": "^4.19.2",
     "ws": "^8.18.0",
     "y-protocols": "^1.0.6",
     "yjs": "^13.6.31"
@@ -20,7 +24,6 @@
   "devDependencies": {
     "@types/node": "^20",
     "@types/ws": "^8.5.13",
-    "tsx": "^4.19.2",
     "typescript": "^5"
   }
 }

@@ -1,32 +1,44 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
 /**
  * Connection / save-state indicator.
  *
- * Phase 2 reports two things:
- *  - savedLocally: has the Yjs doc been persisted to IndexedDB yet?
- *  - online/offline: the browser's network status (navigator.onLine).
+ * Two independent signals, because in a local-first app they really are
+ * independent:
+ *  - savedLocally: has the Yjs doc been persisted to IndexedDB? (your safety net)
+ *  - connection:   the realtime link to the sync server (shared with others)
  *
- * Real-time *server* sync status ("syncing / live") is added in Phase 3 when
- * the WebSocket provider exists. For now the headline is that your work is
- * safe locally regardless of the network.
+ * You can be "Saved locally" while "Offline" — that's the whole point: your work
+ * is safe even when the realtime link is down, and merges back on reconnect.
  */
-export function StatusIndicator({ savedLocally }: { savedLocally: boolean }) {
-  const [online, setOnline] = useState(true);
+export type Connection = "connecting" | "connected" | "disconnected";
 
-  useEffect(() => {
-    setOnline(navigator.onLine);
-    const up = () => setOnline(true);
-    const down = () => setOnline(false);
-    window.addEventListener("online", up);
-    window.addEventListener("offline", down);
-    return () => {
-      window.removeEventListener("online", up);
-      window.removeEventListener("offline", down);
-    };
-  }, []);
+const LIVE: Record<Connection, { label: string; dot: string; text: string }> = {
+  connected: {
+    label: "Live",
+    dot: "bg-emerald-500",
+    text: "text-neutral-500",
+  },
+  connecting: {
+    label: "Connecting…",
+    dot: "bg-amber-500 animate-pulse",
+    text: "text-amber-600 dark:text-amber-400",
+  },
+  disconnected: {
+    label: "Offline",
+    dot: "bg-neutral-400",
+    text: "text-neutral-500",
+  },
+};
+
+export function StatusIndicator({
+  savedLocally,
+  connection,
+}: {
+  savedLocally: boolean;
+  connection: Connection;
+}) {
+  const live = LIVE[connection];
 
   return (
     <div className="flex items-center gap-3 text-xs">
@@ -40,18 +52,9 @@ export function StatusIndicator({ savedLocally }: { savedLocally: boolean }) {
         {savedLocally ? "Saved locally" : "Saving…"}
       </span>
 
-      <span
-        className={`flex items-center gap-1.5 ${
-          online ? "text-neutral-500" : "text-amber-600 dark:text-amber-400"
-        }`}
-      >
-        <span
-          aria-hidden
-          className={`size-2 rounded-full ${
-            online ? "bg-blue-500" : "bg-neutral-400"
-          }`}
-        />
-        {online ? "Online" : "Offline"}
+      <span className={`flex items-center gap-1.5 ${live.text}`}>
+        <span aria-hidden className={`size-2 rounded-full ${live.dot}`} />
+        {live.label}
       </span>
     </div>
   );

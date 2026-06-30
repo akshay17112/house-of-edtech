@@ -7,9 +7,13 @@ import StarterKit from "@tiptap/starter-kit";
 import Collaboration from "@tiptap/extension-collaboration";
 import * as Y from "yjs";
 import { IndexeddbPersistence } from "y-indexeddb";
+import { WebsocketProvider } from "y-websocket";
 import type { Role } from "@repo/db";
-import { StatusIndicator } from "./status";
+import { StatusIndicator, type Connection } from "./status";
 import { renameDocumentAction } from "../actions";
+
+const SYNC_URL =
+  process.env.NEXT_PUBLIC_SYNC_URL ?? "ws://localhost:1234";
 
 /**
  * The local-first editor (Client Component).
@@ -20,11 +24,14 @@ import { renameDocumentAction } from "../actions";
  *                              │
  *                              └─▶ IndexeddbPersistence ──▶ browser IndexedDB
  *
- * There is NO network here. Edits are written to the Y.Doc synchronously (no
- * await, so typing never lags) and mirrored into IndexedDB. Reload the page and
- * the doc is rehydrated from IndexedDB — your work survives offline, refreshes,
- * and even a reboot. The WebSocket sync to other users is layered on in Phase 3
- * as just another plugin on this same Y.Doc.
+ * Edits are written to the Y.Doc synchronously (no await, so typing never lags)
+ * and mirrored into IndexedDB. Reload the page and the doc is rehydrated from
+ * IndexedDB — your work survives offline, refreshes, and even a reboot.
+ *
+ * Phase 3 adds realtime sync as just ANOTHER plugin on the SAME Y.Doc: a
+ * WebsocketProvider to the sync server. Yjs merges the WebSocket peer and the
+ * IndexedDB copy deterministically (CRDT), so local-first and realtime coexist
+ * — go offline and the IndexedDB path keeps working; reconnect and edits merge.
  */
 export function Editor({
   docId,
@@ -40,9 +47,11 @@ export function Editor({
   // One Y.Doc per mount. useMemo keeps the SAME instance across re-renders.
   const ydoc = useMemo(() => new Y.Doc(), []);
   const [savedLocally, setSavedLocally] = useState(false);
+  const [connection, setConnection] = useState<Connection>("connecting");
 
-  // Viewers get a read-only editor. (Server-side enforcement comes with the
-  // WebSocket server in Phase 3; this is the UI half.)
+  // Viewers get a read-only editor. This is the UI half; the sync server
+  // ENFORCES read-only on the wire (a viewer's edits never reach other peers
+  // or the database), so this isn't the only line of defense.
   const editable = role !== "viewer";
 
   // Attach IndexedDB persistence to the Y.Doc. This both loads any existing
@@ -55,6 +64,39 @@ export function Editor({
     return () => {
       persistence.off("synced", onSynced);
       persistence.destroy();
+    };
+  }, [docId, ydoc]);
+
+  // Attach the realtime WebSocket provider to the SAME Y.Doc. We first fetch a
+  // short-lived sync token from our own origin (the socket server can't read
+  // the session cookie), then connect with it as a query param.
+  useEffect(() => {
+    let provider: WebsocketProvider | null = null;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch("/api/sync/token");
+        if (!res.ok) throw new Error(`token request failed: ${res.status}`);
+        const { token } = (await res.json()) as { token: string };
+        if (cancelled) return;
+
+        provider = new WebsocketProvider(SYNC_URL, docId, ydoc, {
+          params: { token },
+        });
+        provider.on("status", (e: { status: Connection }) =>
+          setConnection(e.status),
+        );
+        // Announce presence (used for collaborator cursors later).
+        provider.awareness.setLocalStateField("user", { name: userName });
+      } catch {
+        if (!cancelled) setConnection("disconnected");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      provider?.destroy();
     };
   }, [docId, ydoc]);
 
@@ -95,7 +137,7 @@ export function Editor({
               </span>
             )}
           </div>
-          <StatusIndicator savedLocally={savedLocally} />
+          <StatusIndicator savedLocally={savedLocally} connection={connection} />
         </div>
       </header>
 

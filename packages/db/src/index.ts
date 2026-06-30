@@ -36,7 +36,10 @@ neonConfig.fetchFunction = async (input: unknown, init: unknown) => {
 
   for (let attempt = 0; attempt <= delays.length; attempt++) {
     try {
-      return await baseFetch(input as RequestInfo, init as RequestInit);
+      return await baseFetch(
+        input as Parameters<typeof fetch>[0],
+        init as Parameters<typeof fetch>[1],
+      );
     } catch (error) {
       lastError = error;
       if (attempt < delays.length) {

@@ -5,7 +5,9 @@ import Link from "next/link";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Collaboration from "@tiptap/extension-collaboration";
+import CollaborationCaret from "@tiptap/extension-collaboration-caret";
 import * as Y from "yjs";
+import { Awareness } from "y-protocols/awareness";
 import { IndexeddbPersistence } from "y-indexeddb";
 import { WebsocketProvider } from "y-websocket";
 import type { Role } from "@repo/db";
@@ -14,6 +16,18 @@ import { renameDocumentAction } from "../actions";
 
 const SYNC_URL =
   process.env.NEXT_PUBLIC_SYNC_URL ?? "ws://localhost:1234";
+
+// A small fixed palette; each collaborator gets a stable color derived from
+// their name, so the same person is the same color for everyone in the room.
+const CURSOR_COLORS = [
+  "#f783ac", "#9775fa", "#4dabf7", "#38d9a9",
+  "#ffa94d", "#ff6b6b", "#a9e34b", "#22b8cf",
+];
+function colorFor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) | 0;
+  return CURSOR_COLORS[Math.abs(hash) % CURSOR_COLORS.length];
+}
 
 /**
  * The local-first editor (Client Component).
@@ -46,6 +60,11 @@ export function Editor({
 }) {
   // One Y.Doc per mount. useMemo keeps the SAME instance across re-renders.
   const ydoc = useMemo(() => new Y.Doc(), []);
+  // Awareness (ephemeral presence: who's here + cursor position). Created
+  // synchronously so the editor can render cursors immediately; the WebSocket
+  // provider (attached later, after the token fetch) shares THIS instance to
+  // sync presence over the network.
+  const awareness = useMemo(() => new Awareness(ydoc), [ydoc]);
   const [savedLocally, setSavedLocally] = useState(false);
   const [connection, setConnection] = useState<Connection>("connecting");
 
@@ -83,12 +102,11 @@ export function Editor({
 
         provider = new WebsocketProvider(SYNC_URL, docId, ydoc, {
           params: { token },
+          awareness, // share the instance the editor already renders cursors from
         });
         provider.on("status", (e: { status: Connection }) =>
           setConnection(e.status),
         );
-        // Announce presence (used for collaborator cursors later).
-        provider.awareness.setLocalStateField("user", { name: userName });
       } catch {
         if (!cancelled) setConnection("disconnected");
       }
@@ -98,7 +116,7 @@ export function Editor({
       cancelled = true;
       provider?.destroy();
     };
-  }, [docId, ydoc]);
+  }, [docId, ydoc, awareness]);
 
   const editor = useEditor({
     editable,
@@ -108,6 +126,14 @@ export function Editor({
       StarterKit.configure({ undoRedo: false }),
       // Bind the editor to our Y.Doc — this is the TipTap ⇄ Yjs link.
       Collaboration.configure({ document: ydoc }),
+      // Render other people's live cursors + name labels. It only reads
+      // `provider.awareness`, so we hand it the awareness instance directly —
+      // that way cursors work the instant the editor mounts, before (and even
+      // without) a WebSocket connection.
+      CollaborationCaret.configure({
+        provider: { awareness },
+        user: { name: userName, color: colorFor(userName) },
+      }),
     ],
     // Required in Next.js/SSR: don't render synchronously on the server.
     immediatelyRender: false,

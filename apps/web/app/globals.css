@@ -86,3 +86,29 @@ body {
   height: 0;
   pointer-events: none;
 }
+
+/* Collaborator cursors (CollaborationCaret). The per-user color is set inline
+   by the extension; these rules give the caret and name label their shape. */
+.collaboration-carets__caret {
+  border-left: 1px solid currentColor;
+  border-right: 1px solid currentColor;
+  margin-left: -1px;
+  margin-right: -1px;
+  position: relative;
+  word-break: normal;
+  pointer-events: none;
+}
+.collaboration-carets__label {
+  position: absolute;
+  top: -1.4em;
+  left: -1px;
+  border-radius: 3px 3px 3px 0;
+  padding: 0.1rem 0.3rem;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: normal;
+  white-space: nowrap;
+  color: #fff;
+  user-select: none;
+  pointer-events: none;
+}

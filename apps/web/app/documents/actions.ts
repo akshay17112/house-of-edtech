@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { createDocument, renameDocument } from "@repo/db";
+import { createDocument, renameDocument, deleteDocument } from "@repo/db";
 import { requireUser } from "@/lib/dal";
 
 /**
@@ -32,6 +32,19 @@ export async function renameDocumentAction(
 ): Promise<{ ok: boolean }> {
   const user = await requireUser();
   const ok = await renameDocument({ documentId, userId: user.id, title });
+  if (ok) revalidatePath("/documents");
+  return { ok };
+}
+
+/**
+ * Delete a document the current user OWNS. Authorization lives in the query
+ * (`deleteDocument` rejects non-owners), so a non-owner can't delete via this.
+ */
+export async function deleteDocumentAction(
+  documentId: string,
+): Promise<{ ok: boolean }> {
+  const user = await requireUser();
+  const ok = await deleteDocument({ documentId, userId: user.id });
   if (ok) revalidatePath("/documents");
   return { ok };
 }

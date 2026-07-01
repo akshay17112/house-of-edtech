@@ -91,6 +91,26 @@ export async function getDocumentForUser(input: {
   return row ?? null;
 }
 
+/**
+ * Delete a document. OWNER ONLY — editors and viewers cannot delete.
+ * The DB cascades (memberships, doc_state, doc_updates, versions all have
+ * `onDelete: "cascade"`), so this removes the document and everything tied to
+ * it. Returns false if the user isn't the owner (or has no access at all).
+ */
+export async function deleteDocument(input: {
+  documentId: string;
+  userId: string;
+}): Promise<boolean> {
+  const access = await getDocumentForUser({
+    documentId: input.documentId,
+    userId: input.userId,
+  });
+  if (access?.role !== "owner") return false;
+
+  await db.delete(documents).where(eq(documents.id, input.documentId));
+  return true;
+}
+
 /** Rename a document the user can edit (owner/editor). */
 export async function renameDocument(input: {
   documentId: string;

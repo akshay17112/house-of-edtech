@@ -29,6 +29,14 @@ function colorFor(name: string): string {
   return CURSOR_COLORS[Math.abs(hash) % CURSOR_COLORS.length];
 }
 
+// AI writing actions exposed in the editor toolbar (see /api/ai).
+const AI_ACTIONS = [
+  { key: "improve", label: "Improve writing" },
+  { key: "grammar", label: "Fix grammar & spelling" },
+  { key: "summarize", label: "Summarize" },
+  { key: "continue", label: "Continue writing" },
+] as const;
+
 /**
  * The local-first editor (Client Component).
  *
@@ -67,6 +75,8 @@ export function Editor({
   const awareness = useMemo(() => new Awareness(ydoc), [ydoc]);
   const [savedLocally, setSavedLocally] = useState(false);
   const [connection, setConnection] = useState<Connection>("connecting");
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
 
   // Viewers get a read-only editor. This is the UI half; the sync server
   // ENFORCES read-only on the wire (a viewer's edits never reach other peers
@@ -145,6 +155,62 @@ export function Editor({
     },
   });
 
+  // Run an AI action against the current selection (if any) or the whole doc.
+  // The streamed result is written straight into the Y.Doc, so it also appears
+  // live for any collaborators — a nice side effect of the local-first design.
+  async function runAi(action: string) {
+    setAiOpen(false);
+    if (!editor || aiBusy) return;
+
+    const { from, to, empty } = editor.state.selection;
+    const hasSelection = !empty;
+    const source = hasSelection
+      ? editor.state.doc.textBetween(from, to, "\n")
+      : editor.getText();
+    if (!source.trim()) return;
+
+    const isReplace = action === "improve" || action === "grammar";
+    setAiBusy(true);
+    try {
+      const res = await fetch("/api/ai", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action, text: source }),
+      });
+      if (!res.ok || !res.body) {
+        const msg = await res.json().catch(() => null);
+        window.alert(msg?.error ?? "AI request failed.");
+        return;
+      }
+
+      // Position the cursor where the streamed text should land.
+      if (isReplace) {
+        if (hasSelection) editor.chain().focus().deleteRange({ from, to }).run();
+        else editor.chain().focus().selectAll().deleteSelection().run();
+      } else {
+        editor
+          .chain()
+          .focus()
+          .setTextSelection(editor.state.doc.content.size)
+          .run();
+        editor.commands.insertContent("\n\n");
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        if (chunk) editor.commands.insertContent(chunk);
+      }
+    } catch {
+      window.alert("AI request failed — check your connection.");
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
   return (
     <div className="flex min-h-full flex-col">
       <header className="sticky top-0 z-10 border-b border-black/10 bg-white/80 backdrop-blur dark:border-white/10 dark:bg-neutral-950/80">
@@ -163,7 +229,53 @@ export function Editor({
               </span>
             )}
           </div>
-          <StatusIndicator savedLocally={savedLocally} connection={connection} />
+          <div className="flex items-center gap-3">
+            {editable && editor && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setAiOpen((o) => !o)}
+                  disabled={aiBusy}
+                  aria-haspopup="menu"
+                  aria-expanded={aiOpen}
+                  className="rounded-md border border-black/10 px-2.5 py-1 text-xs font-medium text-neutral-700 hover:bg-black/5 disabled:opacity-60 dark:border-white/15 dark:text-neutral-200 dark:hover:bg-white/10"
+                >
+                  {aiBusy ? "✨ Thinking…" : "✨ AI"}
+                </button>
+                {aiOpen && (
+                  <>
+                    <button
+                      type="button"
+                      aria-hidden
+                      tabIndex={-1}
+                      onClick={() => setAiOpen(false)}
+                      className="fixed inset-0 z-10 cursor-default"
+                    />
+                    <div
+                      role="menu"
+                      className="absolute right-0 z-20 mt-1 w-48 overflow-hidden rounded-md border border-black/10 bg-white py-1 text-sm shadow-lg dark:border-white/15 dark:bg-neutral-900"
+                    >
+                      {AI_ACTIONS.map((a) => (
+                        <button
+                          key={a.key}
+                          type="button"
+                          role="menuitem"
+                          onClick={() => runAi(a.key)}
+                          className="block w-full px-3 py-1.5 text-left hover:bg-black/5 dark:hover:bg-white/10"
+                        >
+                          {a.label}
+                        </button>
+                      ))}
+                      <p className="border-t border-black/5 px-3 pt-1.5 pb-1 text-[11px] text-neutral-400 dark:border-white/10">
+                        Works on your selection, or the whole doc.
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+            <StatusIndicator savedLocally={savedLocally} connection={connection} />
+          </div>
         </div>
       </header>
 

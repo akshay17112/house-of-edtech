@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/dal";
 import { signOut } from "@/auth";
 import { Footer } from "@/components/footer";
 import { createDocumentAction } from "./actions";
+import { DeleteDocButton } from "./delete-button";
 
 export const metadata: Metadata = { title: "Your documents" };
 
@@ -65,7 +66,7 @@ export default async function DocumentsPage() {
         ) : (
           <ul className="mt-8 grid gap-3 sm:grid-cols-2">
             {docs.map((doc) => (
-              <li key={doc.id}>
+              <li key={doc.id} className="group relative">
                 <Link
                   href={`/documents/${doc.id}`}
                   className="block rounded-xl border border-black/10 dark:border-white/10 p-5 hover:border-black/25 dark:hover:border-white/25 hover:bg-black/[0.015] dark:hover:bg-white/[0.02] transition-colors"
@@ -78,6 +79,9 @@ export default async function DocumentsPage() {
                     Updated {formatDate(doc.updatedAt)}
                   </p>
                 </Link>
+                {doc.role === "owner" && (
+                  <DeleteDocButton documentId={doc.id} title={doc.title} />
+                )}
               </li>
             ))}
           </ul>

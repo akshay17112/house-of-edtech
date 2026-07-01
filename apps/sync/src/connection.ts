@@ -29,6 +29,7 @@ import {
   flushPersist,
   PERSISTENCE_ORIGIN,
 } from "./persistence";
+import { canWrite } from "@repo/shared";
 import type { Role } from "@repo/db";
 
 const MESSAGE_SYNC = 0;
@@ -40,8 +41,6 @@ const SYNC_STEP2 = 1; // peer sends a diff to apply                             
 const SYNC_UPDATE = 2; // peer sends an incremental update                       (WRITE)
 
 const PING_INTERVAL_MS = 30000;
-
-const canWrite = (role: Role) => role === "owner" || role === "editor";
 
 /* -------------------------------------------------------------------------- */
 /* Rooms                                                                      */

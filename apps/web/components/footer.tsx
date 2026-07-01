@@ -1,12 +1,5 @@
 import { site } from "@/lib/site";
 
-/**
- * Global footer. Carries the author attribution required by the assignment
- * submission guidelines (name + GitHub + LinkedIn).
- *
- * This is a Server Component (no "use client") — it renders static content,
- * so it ships zero JavaScript to the browser.
- */
 export function Footer() {
   return (
     <footer className="border-t border-black/10 dark:border-white/10 mt-auto">

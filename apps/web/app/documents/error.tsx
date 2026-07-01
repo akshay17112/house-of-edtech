@@ -1,13 +1,5 @@
 "use client";
 
-/**
- * Error boundary for the /documents segment.
- *
- * Next.js renders this Client Component if a page in this segment throws at
- * request time (e.g. a database hiccup that outlives the retry budget).
- * `reset()` re-attempts rendering the segment — usually all it takes once a
- * cold-started database has woken up.
- */
 export default function DocumentsError({
   error,
   reset,

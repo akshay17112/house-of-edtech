@@ -17,8 +17,6 @@ import { renameDocumentAction } from "../actions";
 const SYNC_URL =
   process.env.NEXT_PUBLIC_SYNC_URL ?? "ws://localhost:1234";
 
-// A small fixed palette; each collaborator gets a stable color derived from
-// their name, so the same person is the same color for everyone in the room.
 const CURSOR_COLORS = [
   "#f783ac", "#9775fa", "#4dabf7", "#38d9a9",
   "#ffa94d", "#ff6b6b", "#a9e34b", "#22b8cf",
@@ -29,7 +27,6 @@ function colorFor(name: string): string {
   return CURSOR_COLORS[Math.abs(hash) % CURSOR_COLORS.length];
 }
 
-// AI writing actions exposed in the editor toolbar (see /api/ai).
 const AI_ACTIONS = [
   { key: "improve", label: "Improve writing" },
   { key: "grammar", label: "Fix grammar & spelling" },
@@ -37,24 +34,6 @@ const AI_ACTIONS = [
   { key: "continue", label: "Continue writing" },
 ] as const;
 
-/**
- * The local-first editor (Client Component).
- *
- * Data flow (the whole point of "local-first"):
- *
- *   You type ──▶ TipTap ──▶ Y.Doc (the CRDT, in-memory source of truth)
- *                              │
- *                              └─▶ IndexeddbPersistence ──▶ browser IndexedDB
- *
- * Edits are written to the Y.Doc synchronously (no await, so typing never lags)
- * and mirrored into IndexedDB. Reload the page and the doc is rehydrated from
- * IndexedDB — your work survives offline, refreshes, and even a reboot.
- *
- * Phase 3 adds realtime sync as just ANOTHER plugin on the SAME Y.Doc: a
- * WebsocketProvider to the sync server. Yjs merges the WebSocket peer and the
- * IndexedDB copy deterministically (CRDT), so local-first and realtime coexist
- * — go offline and the IndexedDB path keeps working; reconnect and edits merge.
- */
 export function Editor({
   docId,
   initialTitle,
@@ -66,25 +45,17 @@ export function Editor({
   role: Role;
   userName: string;
 }) {
-  // One Y.Doc per mount. useMemo keeps the SAME instance across re-renders.
   const ydoc = useMemo(() => new Y.Doc(), []);
-  // Awareness (ephemeral presence: who's here + cursor position). Created
-  // synchronously so the editor can render cursors immediately; the WebSocket
-  // provider (attached later, after the token fetch) shares THIS instance to
-  // sync presence over the network.
+  // Created here (not by the provider) so cursors render immediately and the
+  // WebSocket provider can share the same awareness once it connects.
   const awareness = useMemo(() => new Awareness(ydoc), [ydoc]);
   const [savedLocally, setSavedLocally] = useState(false);
   const [connection, setConnection] = useState<Connection>("connecting");
   const [aiBusy, setAiBusy] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
 
-  // Viewers get a read-only editor. This is the UI half; the sync server
-  // ENFORCES read-only on the wire (a viewer's edits never reach other peers
-  // or the database), so this isn't the only line of defense.
   const editable = role !== "viewer";
 
-  // Attach IndexedDB persistence to the Y.Doc. This both loads any existing
-  // content and saves every future change locally.
   useEffect(() => {
     const persistence = new IndexeddbPersistence(`doc:${docId}`, ydoc);
     const onSynced = () => setSavedLocally(true);
@@ -96,9 +67,6 @@ export function Editor({
     };
   }, [docId, ydoc]);
 
-  // Attach the realtime WebSocket provider to the SAME Y.Doc. We first fetch a
-  // short-lived sync token from our own origin (the socket server can't read
-  // the session cookie), then connect with it as a query param.
   useEffect(() => {
     let provider: WebsocketProvider | null = null;
     let cancelled = false;
@@ -112,7 +80,7 @@ export function Editor({
 
         provider = new WebsocketProvider(SYNC_URL, docId, ydoc, {
           params: { token },
-          awareness, // share the instance the editor already renders cursors from
+          awareness,
         });
         provider.on("status", (e: { status: Connection }) =>
           setConnection(e.status),
@@ -131,21 +99,14 @@ export function Editor({
   const editor = useEditor({
     editable,
     extensions: [
-      // Disable StarterKit's built-in undo/redo: the CRDT (Collaboration)
-      // provides history that is correct under concurrent editing.
+      // Disable StarterKit history; the CRDT provides undo/redo correct under concurrent edits.
       StarterKit.configure({ undoRedo: false }),
-      // Bind the editor to our Y.Doc — this is the TipTap ⇄ Yjs link.
       Collaboration.configure({ document: ydoc }),
-      // Render other people's live cursors + name labels. It only reads
-      // `provider.awareness`, so we hand it the awareness instance directly —
-      // that way cursors work the instant the editor mounts, before (and even
-      // without) a WebSocket connection.
       CollaborationCaret.configure({
         provider: { awareness },
         user: { name: userName, color: colorFor(userName) },
       }),
     ],
-    // Required in Next.js/SSR: don't render synchronously on the server.
     immediatelyRender: false,
     editorProps: {
       attributes: {
@@ -155,9 +116,6 @@ export function Editor({
     },
   });
 
-  // Run an AI action against the current selection (if any) or the whole doc.
-  // The streamed result is written straight into the Y.Doc, so it also appears
-  // live for any collaborators — a nice side effect of the local-first design.
   async function runAi(action: string) {
     setAiOpen(false);
     if (!editor || aiBusy) return;
@@ -183,7 +141,6 @@ export function Editor({
         return;
       }
 
-      // Position the cursor where the streamed text should land.
       if (isReplace) {
         if (hasSelection) editor.chain().focus().deleteRange({ from, to }).run();
         else editor.chain().focus().selectAll().deleteSelection().run();
@@ -290,14 +247,6 @@ export function Editor({
   );
 }
 
-/**
- * Click-to-edit document title.
- *
- * Editors/owners see a button that turns into an input on click; viewers get
- * plain text (the server rejects their renames anyway — this just hides the UI).
- * The rename is applied optimistically and reverted if the server says no, so a
- * forbidden or failed save never leaves a stale title on screen.
- */
 function DocTitle({
   docId,
   initialTitle,
@@ -328,11 +277,11 @@ function DocTitle({
     if (next === title) return;
 
     const previous = title;
-    setTitle(next); // optimistic
+    setTitle(next);
     startTransition(async () => {
       const { ok } = await renameDocumentAction(docId, next);
       if (!ok) {
-        setTitle(previous); // server refused (e.g. lost access) — revert
+        setTitle(previous);
         setDraft(previous);
       }
     });

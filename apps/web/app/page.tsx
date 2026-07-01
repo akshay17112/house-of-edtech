@@ -2,14 +2,6 @@ import Link from "next/link";
 import { Footer } from "@/components/footer";
 import { site } from "@/lib/site";
 
-/**
- * Landing page. Server Component (default in Next 16) — static marketing content,
- * so it ships no client JavaScript.
- *
- * The three feature cards intentionally map to the three hard problems the
- * assignment is graded on: offline-first, deterministic merge, safe versioning.
- */
-
 const features = [
   {
     title: "Works fully offline",
@@ -50,7 +42,6 @@ export default function Home() {
       </header>
 
       <main className="flex-1">
-        {/* Hero */}
         <section className="mx-auto max-w-5xl px-6 pt-16 pb-20 text-center">
           <span className="inline-flex items-center gap-2 rounded-full border border-black/10 dark:border-white/15 px-3 py-1 text-xs font-medium text-neutral-500">
             <span className="size-1.5 rounded-full bg-emerald-500" />
@@ -80,7 +71,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Features */}
         <section
           id="features"
           className="mx-auto max-w-5xl px-6 pb-24 grid gap-5 sm:grid-cols-3"

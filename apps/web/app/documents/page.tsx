@@ -9,13 +9,6 @@ import { DeleteDocButton } from "./delete-button";
 
 export const metadata: Metadata = { title: "Your documents" };
 
-/**
- * Documents dashboard (Server Component).
- *
- * `requireUser()` is the auth gate. We then load only the documents this user
- * is a member of (tenant-scoped query) and render them. Creating a document is
- * a Server Action submitted from the form below.
- */
 export default async function DocumentsPage() {
   const user = await requireUser();
   const docs = await listDocumentsForUser(user.id);

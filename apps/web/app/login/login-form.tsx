@@ -8,13 +8,6 @@ import {
   type AuthActionState,
 } from "./actions";
 
-/**
- * Auth form (Client Component). Toggles between "sign in" and "create account".
- *
- * Uses React 19's `useActionState` to call the server actions and render any
- * returned error inline, while the actual credential handling stays on the
- * server. `useFormStatus`-style pending state comes from the second tuple slot.
- */
 export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
   const [mode, setMode] = useState<"login" | "register">("login");
 

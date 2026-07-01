@@ -1,19 +1,6 @@
-/**
- * Sync-server access tokens.
- *
- * The realtime WebSocket server (apps/sync) lives on a DIFFERENT origin from
- * the Next.js app in production (Vercel ⇄ Railway). Auth.js session cookies are
- * encrypted and `SameSite=Lax`, so the browser will not send them on a
- * cross-site WebSocket handshake — cookie auth simply does not reach the socket.
- *
- * Instead the web app mints a short-lived token the moment the editor opens,
- * the browser hands it to the socket as a query param, and the sync server
- * verifies it with the SAME `AUTH_SECRET`. Both sides import THIS file, so the
- * signing and verification can never drift apart.
- *
- * The token only authenticates the handshake (the connection then lives as long
- * as the tab is open), so a short TTL is safe and limits replay.
- */
+// Short-lived token the browser passes to the sync server. The server runs on
+// a different origin, so the Auth.js session cookie (SameSite) can't reach it —
+// this token, signed with the shared AUTH_SECRET, authenticates the WS handshake.
 import { SignJWT, jwtVerify } from "jose";
 
 const ALG = "HS256";
@@ -27,7 +14,6 @@ function key(secret: string): Uint8Array {
   return new TextEncoder().encode(secret);
 }
 
-/** Mint a short-lived token proving the given user's identity to apps/sync. */
 export async function signSyncToken(
   userId: string,
   secret: string,
@@ -41,10 +27,6 @@ export async function signSyncToken(
     .sign(key(secret));
 }
 
-/**
- * Verify a sync token and return the trusted userId.
- * Throws if the token is missing, malformed, expired, or signed by another key.
- */
 export async function verifySyncToken(
   token: string,
   secret: string,

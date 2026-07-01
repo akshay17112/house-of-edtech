@@ -1,14 +1,5 @@
-/**
- * Tenant-scoped document queries.
- *
- * THE security rule of this app: a user may only ever touch a document they
- * have a membership for. Every query here joins `memberships` against the
- * given userId, so there is no way to read or list another tenant's document
- * through this layer. (Defense in depth: Postgres RLS is added later.)
- *
- * These functions take a trusted `userId` (resolved from the session by the
- * caller in apps/web/lib) — they do not read the session themselves.
- */
+// Tenant isolation: every query here joins `memberships` on the given userId,
+// so there is no way to read or touch a document the user isn't a member of.
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "./index";
 import { documents, memberships, type Role } from "./schema";
@@ -20,7 +11,6 @@ export type DocumentListItem = {
   updatedAt: Date;
 };
 
-/** All documents this user can access, most-recently-updated first. */
 export async function listDocumentsForUser(
   userId: string,
 ): Promise<DocumentListItem[]> {
@@ -37,14 +27,6 @@ export async function listDocumentsForUser(
     .orderBy(desc(documents.updatedAt));
 }
 
-/**
- * Create a document owned by this user.
- *
- * Inserts the document and the owner membership. The Neon HTTP driver is
- * stateless and does not support multi-statement transactions, so these run
- * sequentially; `documents.ownerId` also records ownership independently, so
- * ownership is never lost even in the unlikely gap between the two inserts.
- */
 export async function createDocument(input: {
   userId: string;
   title?: string;
@@ -63,11 +45,6 @@ export async function createDocument(input: {
   return { id: doc.id };
 }
 
-/**
- * Fetch a single document IF the user is a member, returning their role.
- * Returns null when the user has no access — the caller treats that as 404,
- * so we never reveal whether a document exists to non-members.
- */
 export async function getDocumentForUser(input: {
   documentId: string;
   userId: string;
@@ -91,12 +68,6 @@ export async function getDocumentForUser(input: {
   return row ?? null;
 }
 
-/**
- * Delete a document. OWNER ONLY — editors and viewers cannot delete.
- * The DB cascades (memberships, doc_state, doc_updates, versions all have
- * `onDelete: "cascade"`), so this removes the document and everything tied to
- * it. Returns false if the user isn't the owner (or has no access at all).
- */
 export async function deleteDocument(input: {
   documentId: string;
   userId: string;
@@ -111,7 +82,6 @@ export async function deleteDocument(input: {
   return true;
 }
 
-/** Rename a document the user can edit (owner/editor). */
 export async function renameDocument(input: {
   documentId: string;
   userId: string;

@@ -3,14 +3,6 @@
 import { useTransition } from "react";
 import { deleteDocumentAction } from "./actions";
 
-/**
- * Delete control for a document card. Rendered only for owners (the page
- * decides that); the server action re-checks ownership regardless, so this is
- * the UI half of an owner-only action — not the only guard.
- *
- * It sits OUTSIDE the card's <Link>, so clicking it deletes instead of opening
- * the document. A confirm() guards the irreversible action.
- */
 export function DeleteDocButton({
   documentId,
   title,

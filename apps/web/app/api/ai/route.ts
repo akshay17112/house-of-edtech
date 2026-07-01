@@ -3,19 +3,9 @@ import { createGroq } from "@ai-sdk/groq";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 
-/**
- * AI writing assistant — streams completions for the editor.
- *
- * Uses Groq via the Vercel AI SDK. Groq's API has a genuinely free tier, so
- * this add-on costs nothing to run (set GROQ_API_KEY from console.groq.com).
- * The model is configurable via GROQ_MODEL.
- *
- * Auth: requires a logged-in user (prevents anonymous abuse of the key). The
- * text to operate on is sent by the client; we cap it to bound token usage.
- */
 const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
 const MODEL = process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile";
-const MAX_INPUT = 12000; // characters
+const MAX_INPUT = 12000;
 
 const PROMPTS: Record<string, (text: string) => string> = {
   improve: (t) =>

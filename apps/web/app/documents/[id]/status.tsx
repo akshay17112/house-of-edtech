@@ -1,16 +1,5 @@
 "use client";
 
-/**
- * Connection / save-state indicator.
- *
- * Two independent signals, because in a local-first app they really are
- * independent:
- *  - savedLocally: has the Yjs doc been persisted to IndexedDB? (your safety net)
- *  - connection:   the realtime link to the sync server (shared with others)
- *
- * You can be "Saved locally" while "Offline" — that's the whole point: your work
- * is safe even when the realtime link is down, and merges back on reconnect.
- */
 export type Connection = "connecting" | "connected" | "disconnected";
 
 const LIVE: Record<Connection, { label: string; dot: string; text: string }> = {

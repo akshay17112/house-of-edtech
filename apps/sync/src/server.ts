@@ -1,22 +1,4 @@
-/**
- * Realtime sync server (apps/sync).
- *
- * A WebSocket per open document. Before a socket is accepted we prove two
- * things, in order:
- *   1. IDENTITY  — the `?token` query param is a valid sync token (signed by the
- *                  web app with the shared AUTH_SECRET) → gives us a userId.
- *   2. ACCESS    — that user has a membership on the requested document → gives
- *                  us their role. No membership ⇒ the handshake is rejected, so
- *                  a non-member can't even open the socket.
- * The role is then handed to the connection, where `viewer` is enforced as
- * read-only (see connection.ts).
- *
- * Deploys as a standalone Node service (Railway/Render). Needs AUTH_SECRET and
- * DATABASE_URL in the environment — the same values the web app uses.
- */
 import { config } from "dotenv";
-// Local dev reads apps/sync/.env.local; in production the platform sets real
-// env vars and these files are simply absent (config() no-ops).
 config({ path: ".env.local" });
 config();
 import http from "node:http";
@@ -35,10 +17,6 @@ if (!AUTH_SECRET) {
 
 type ConnContext = { docId: string; userId: string; role: Role };
 
-/**
- * Authorize an upgrade request. Throws (→ 401/403) if identity or access fails.
- * Room name is the URL path (the document id); token is a query param.
- */
 async function authorize(req: http.IncomingMessage): Promise<ConnContext> {
   const url = new URL(req.url ?? "/", "http://localhost");
   const docId = decodeURIComponent(url.pathname.slice(1));
@@ -56,7 +34,6 @@ async function authorize(req: http.IncomingMessage): Promise<ConnContext> {
 }
 
 const server = http.createServer((_req, res) => {
-  // Plain HTTP hits (health checks) get a simple 200.
   res.writeHead(200, { "content-type": "text/plain" });
   res.end("sync server ok\n");
 });
@@ -78,9 +55,6 @@ server.on("upgrade", (req, socket, head) => {
 });
 
 wss.on("connection", (ws: WebSocket, _req: http.IncomingMessage, ctx: ConnContext) => {
-  // The room loads from Postgres asynchronously, but the client starts sending
-  // immediately. Buffer those early messages so none are lost, then hand them
-  // to setupConnection to replay once the doc is ready.
   ws.binaryType = "arraybuffer";
   const buffered: Uint8Array[] = [];
   const bufferEarly = (message: ArrayBuffer) =>

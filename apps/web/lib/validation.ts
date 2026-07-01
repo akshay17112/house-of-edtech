@@ -1,10 +1,3 @@
-/**
- * Shared input-validation schemas (Zod).
- *
- * Validation is a recurring theme in this app: the assignment explicitly calls
- * for "robust data validation". Every untrusted input — login forms, sync
- * payloads, API bodies — is parsed through a Zod schema before use.
- */
 import { z } from "zod";
 
 export const credentialsSchema = z.object({

@@ -8,19 +8,10 @@ import { db, schema } from "@repo/db";
 import { signIn } from "@/auth";
 import { registerSchema, credentialsSchema } from "@/lib/validation";
 
-/**
- * Server Actions for auth. These run only on the server (note "use server"),
- * so password hashing and DB access never touch the client.
- *
- * Each returns a small `{ error }` object on failure that the client form
- * renders. On success they sign the user in and redirect.
- */
-
 export type AuthActionState = { error?: string } | undefined;
 
 const DEFAULT_REDIRECT = "/documents";
 
-/** Register a new user, then sign them in. */
 export async function registerAction(
   _prev: AuthActionState,
   formData: FormData,
@@ -57,7 +48,6 @@ export async function registerAction(
     passwordHash,
   });
 
-  // Sign the new user in. redirectTo throws a redirect, which is expected.
   await signIn("credentials", {
     email: normalizedEmail,
     password,
@@ -65,7 +55,6 @@ export async function registerAction(
   });
 }
 
-/** Sign an existing user in. */
 export async function loginAction(
   _prev: AuthActionState,
   formData: FormData,
@@ -89,7 +78,6 @@ export async function loginAction(
       redirectTo: callbackUrl,
     });
   } catch (error) {
-    // Auth.js throws a redirect on success; only treat real auth errors here.
     if (error instanceof AuthError) {
       return { error: "Invalid email or password." };
     }

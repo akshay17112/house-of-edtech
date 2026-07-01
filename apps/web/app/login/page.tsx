@@ -3,13 +3,6 @@ import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = { title: "Sign in" };
 
-/**
- * Login page (Server Component).
- *
- * In Next.js 16 `searchParams` is a Promise and must be awaited (breaking
- * change from 15). We read the optional `callbackUrl` (where the proxy wanted
- * to send the user) and hand it to the client form.
- */
 export default async function LoginPage({
   searchParams,
 }: PageProps<"/login">) {
